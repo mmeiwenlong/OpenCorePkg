@@ -201,7 +201,7 @@ KcRebuildMachHeader (
 
   CurrentSize  = MachHeader->CommandsSize + sizeof (*MachHeader);
   FilesetSize  = InternalKcGetKextFilesetSize (Context);
-  RequiredSize = FilesetSize + sizeof (MACH_LOAD_COMMAND_SEGMENT_64) + Context->PrelinkedInfoSegment->CommandSize;
+  RequiredSize = FilesetSize + sizeof (MACH_SEGMENT_COMMAND_64) + Context->PrelinkedInfoSegment->CommandSize;
 
   TextSegment = MachoGetSegmentByName64 (
     &Context->PrelinkedMachContext,
@@ -306,7 +306,7 @@ KcInitKextFixupChains (
 
   ASSERT (SegChainSize != 0);
   ASSERT (
-    SegChainSize == KcGetSegmentFixupChainsSize (ReservedSize)
+    SegChainSize >= KcGetSegmentFixupChainsSize (ReservedSize)
     );
   //
   // Context initialisation guarantees the command size is a multiple of 8.
@@ -444,11 +444,11 @@ InternalKcConvertRelocToFixup (
 
   UINT16                                       NewFixupPage;
   UINT16                                       NewFixupPageOffset;
-  MACH_DYKD_CHAINED_PTR_64_KERNEL_CACHE_REBASE NewFixup;
+  MACH_DYLD_CHAINED_PTR_64_KERNEL_CACHE_REBASE NewFixup;
 
   UINT16                                       IterFixupPageOffset;
   VOID                                         *IterFixupData;
-  MACH_DYKD_CHAINED_PTR_64_KERNEL_CACHE_REBASE IterFixup;
+  MACH_DYLD_CHAINED_PTR_64_KERNEL_CACHE_REBASE IterFixup;
   UINT16                                       NextIterFixupPageOffset;
 
   UINT16                                       FixupDelta;
@@ -488,7 +488,7 @@ InternalKcConvertRelocToFixup (
   // This 1MB here is a bit of a hack. I think it is just the same thing
   // as KERNEL_BASE_PADDR in OcAfterBootCompatLib.
   //
-  NewFixup.Target = ReadUnaligned64 (RelocDest) - BASE_1MB;
+  NewFixup.Target = ReadUnaligned64 (RelocDest) - KERNEL_FIXUP_OFFSET;
 
   NewFixupPage       = (UINT16) (RelocOffsetInSeg / MACHO_PAGE_SIZE);
   NewFixupPageOffset = (UINT16) (RelocOffsetInSeg % MACHO_PAGE_SIZE);
@@ -531,7 +531,7 @@ InternalKcConvertRelocToFixup (
     // if the previous one was the last.
     //
     if (IterFixup.Next != 0) {
-      ASSERT (IterFixup.Next > FixupDelta);
+      ASSERT (IterFixup.Next >= FixupDelta);
       NewFixup.Next = IterFixup.Next - FixupDelta;
     } else {
       NewFixup.Next = 0;
@@ -620,7 +620,7 @@ KcKextIndexFixups (
     );
 
   DEBUG ((
-    DEBUG_WARN,
+    DEBUG_INFO,
     "OCAK: Local relocs %u on %LX\n",
     DySymtab->NumOfLocalRelocations,
     FirstSegment->VirtualAddress

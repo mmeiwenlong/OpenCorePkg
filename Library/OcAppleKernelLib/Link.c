@@ -980,8 +980,8 @@ InternalRelocateAndCopyRelocations64 (
   MACH_RELOCATION_INFO       *Relocation;
 
   ASSERT (Kext != NULL);
-  ASSERT (SourceRelocations != NULL);
   ASSERT (NumRelocations != NULL);
+  ASSERT (SourceRelocations != NULL || *NumRelocations == 0);
   ASSERT (TargetRelocations != NULL);
 
   PreservedRelocations = 0;
@@ -1405,10 +1405,11 @@ InternalPrelinkKext64 (
     //
     // Undefined symbols are solved via their name.
     //
+    SymbolName = MachoGetSymbolName64 (MachoContext, Symbol);
     Result = InternalSolveSymbol64 (
                Context,
                Kext,
-               MachoGetSymbolName64 (MachoContext, Symbol),
+               SymbolName,
                Symbol,
                &WeakTestValue,
                UndefinedSymtab,

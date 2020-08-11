@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
 BIOSVersion: "63.0.0.0.0"
 BIOSLegacyVersion: "IM111.88Z.F000.B00.1906132358"
-BIOSReleaseDate: "06/13/19"
+BIOSReleaseDate: "06/13/2019"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "iMac11,1"
 SystemVersion: "1.0"
@@ -39,32 +39,28 @@ ProcessorType:
 # FIXME: Correct this one
 ProcessorBusSpeed:
   - 12345
-# FIXME: check
 SmcGeneration: 1
-# FIXME: check
 SmcRevision:
   - 0x01
   - 0x54
-  - 0x0f
+  - 0x0F
   - 0x00
   - 0x00
   - 0x36
-# FIXME: check
 SmcBranch:
   - 0x6B
   - 0x32
+  - 0x32
+  - 0x6B
+  - 0x32
   - 0x33
-  - 0x66
   - 0x00
   - 0x00
-  - 0x00
-  - 0x00
-# FIXME: check
 SmcPlatform:
   - 0x6B
   - 0x32
   - 0x33
-  - 0x66
+  - 0x00
   - 0x00
   - 0x00
   - 0x00

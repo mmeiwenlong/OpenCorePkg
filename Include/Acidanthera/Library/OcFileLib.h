@@ -187,6 +187,22 @@ SetFileData (
   );
 
 /**
+  Read all bytes from EFI_FILE_PROTOCOL and return a buffer.
+
+  @param[in]  File         A pointer to the file protocol.
+  @param[out] Buffer       A pointer for the returned buffer.
+  @param[out] BufferSize   A pointer for the size of the returned buffer.
+
+  @retval EFI_SUCCESS on success.
+**/
+EFI_STATUS
+AllocateCopyFileData (
+  IN  EFI_FILE_PROTOCOL  *File,
+  OUT UINT8              **Buffer,
+  OUT UINT32             *BufferSize
+  );
+
+/**
   Get file information of specified type.
 
   @param[in]  File               A pointer to file handle.
@@ -227,7 +243,7 @@ GetFileSize (
   @retval EFI_SUCCESS on success.
 **/
 EFI_STATUS
-GetFileModifcationTime (
+GetFileModificationTime (
   IN  EFI_FILE_PROTOCOL  *File,
   OUT EFI_TIME           *Time
   );
@@ -311,6 +327,7 @@ OcPartitionGetDiskHandle (
   @param[out] EspDevicePathSize  The size of the returned Device Path.
   @param[out] EspDeviceHandle    Device handle of the returned partition.
 
+  @return The device path protocol from the discovered handle or NULL.
 **/
 EFI_DEVICE_PATH_PROTOCOL *
 OcDiskFindSystemPartitionPath (

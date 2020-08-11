@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
 BIOSVersion: "MBA21.88Z.0075.B05.1003051506"
 BIOSLegacyVersion: "MBA21.88Z.0075.B05.1003051506"
-BIOSReleaseDate: "03/05/10"
+BIOSReleaseDate: "03/05/2010"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "MacBookAir2,1"
 SystemVersion: "1.0"
@@ -48,9 +48,9 @@ SmcRevision:
   - 0x08
 # FIXME: check
 SmcBranch:
-  - 0x4E
-  - 0x41
-  - 0x00
+  - 0x6d
+  - 0x39
+  - 0x36
   - 0x00
   - 0x00
   - 0x00
@@ -58,9 +58,9 @@ SmcBranch:
   - 0x00
 # FIXME: check
 SmcPlatform:
-  - 0x4E
-  - 0x41
-  - 0x00
+  - 0x6d
+  - 0x39
+  - 0x36
   - 0x00
   - 0x00
   - 0x00

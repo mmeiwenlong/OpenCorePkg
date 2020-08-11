@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
 BIOSVersion: "110.0.0.0.0"
 BIOSLegacyVersion: "MBA31.88Z.F000.B00.1906132254"
-BIOSReleaseDate: "06/13/19"
+BIOSReleaseDate: "06/13/2019"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "MacBookAir3,2"
 SystemVersion: "1.0"
@@ -51,19 +51,19 @@ SmcRevision:
   - 0x61
 # FIXME: check
 SmcBranch:
-  - 0x4E
-  - 0x41
-  - 0x00
-  - 0x00
-  - 0x00
-  - 0x00
+  - 0x6b
+  - 0x31
+  - 0x36
+  - 0x6b
+  - 0x39
+  - 0x39
   - 0x00
   - 0x00
 # FIXME: check
 SmcPlatform:
-  - 0x4E
-  - 0x41
-  - 0x00
+  - 0x6b
+  - 0x31
+  - 0x36
   - 0x00
   - 0x00
   - 0x00

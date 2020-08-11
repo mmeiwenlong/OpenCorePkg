@@ -1,7 +1,7 @@
 BIOSVendor: "Apple Inc."
 BIOSVersion: "MBP55.88Z.00AC.B03.0906151708"
 BIOSLegacyVersion: "MBP55.88Z.00AC.B03.0906151708"
-BIOSReleaseDate: "06/15/09"
+BIOSReleaseDate: "06/15/2009"
 SystemManufacturer: "Apple Inc."
 SystemProductName: "MacBookPro5,5"
 SystemVersion: "1.0"
@@ -58,9 +58,9 @@ SmcBranch:
   - 0x00
 # FIXME: check
 SmcPlatform:
-  - 0x4E
-  - 0x41
-  - 0x00
+  - 0x6b
+  - 0x32
+  - 0x34
   - 0x00
   - 0x00
   - 0x00

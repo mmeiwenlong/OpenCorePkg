@@ -3,7 +3,6 @@
 \usepackage{lmodern}
 \usepackage{amssymb,amsmath}
 \usepackage{ifxetex,ifluatex}
-\usepackage{fixltx2e} % provides \textsubscript
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{upquote}
@@ -89,7 +88,7 @@
 
        \vspace{0.2in}
 
-       Reference Manual (0.6.0)
+       Reference Manual (0.6.1)
 
        \vspace{0.2in}
 
@@ -131,7 +130,7 @@ Third-party articles, utilities, books, and alike may be more useful for a wider
 they could provide guide-like material. However, they are prone to their authors' preferences,
 tastes, this document misinterpretation, and essential obsolescence.
 In case you use these sources, for example, \href{https://dortania.github.io}{Dortania}'s
-\href{https://dortania.github.io/OpenCore-Desktop-Guide}{OpenCore Desktop Guide}
+\href{https://dortania.github.io/OpenCore-Install-Guide}{OpenCore Install Guide}
 and \href{https://dortania.github.io/getting-started}{related material},
 please ensure to follow this document for every made decision and judge its consequences.
 
@@ -762,6 +761,8 @@ for extensive messages that should not appear in NVRAM log that is heavily limit
 
 When trying to find the problematic change it is useful to rely on
 \href{https://git-scm.com/docs/git-bisect}{\texttt{git-bisect}} functionality.
+There also are some unnoficial resources that provide per-commit binary
+builds of OpenCore, like \href{https://dortania.github.io/builds}{Dortania}.
 
 \section{ACPI}\label{acpi}
 
@@ -1074,7 +1075,7 @@ source file may help understanding ACPI opcodes.
 
 \emph{Note}: Patches of different \texttt{Find} and \texttt{Replace} lengths
 are unsupported as they may corrupt ACPI tables and make you system unstable
-due to area relocation. If you need such changes you may utilities ``proxy''
+due to area relocation. If you need such changes you may utilise ``proxy''
 patching or \texttt{NOP} the remaining area.
 
 \subsection{Quirks Properties}\label{acpipropsquirks}
@@ -1378,6 +1379,7 @@ To view their current state use \texttt{pmset -g} command in Terminal.
 
   \emph{Note}: This quirk may potentially weaken firmware security, please use
   \texttt{RebuildAppleMemoryMap} if your firmware supports memory attributes table (MAT).
+  Refer to \texttt{OCABC: MAT support is 1/0} log entry to determine whether MAT is supported.
 
 \item
   \texttt{ForceExitBootServices}\\
@@ -1510,7 +1512,9 @@ To view their current state use \texttt{pmset -g} command in Terminal.
 
   \emph{Note 2}: The necessity of this quirk is determined by early boot failures.
   This quirk replaces \texttt{EnableWriteUnprotector} on firmwares supporting
-  memory attributes table (MAT).
+  memory attributes table (MAT). This quirk is generally unnecessary when using
+  \texttt{OpenDuetPkg}, but may be required to boot macOS 10.6 and earlier for
+  unclear reasons.
 
 \item
   \texttt{SetupVirtualMap}\\
@@ -1578,6 +1582,42 @@ ioreg -lw0 -p IODeviceTree -n efi -r -x | grep device-properties |
   gfxutil /tmp/device-properties.hex /tmp/device-properties.plist &&
   cat /tmp/device-properties.plist
 \end{lstlisting}
+
+Device propertties are part of the \texttt{IODeviceTree} (\texttt{gIODT})
+plane of macOS I/O Registry. This plane has several construction stages
+relevant for the platform initialisation. While the early construction
+stage is performed by the XNU kernel in the \texttt{IODeviceTreeAlloc}
+method, the majority of the construction is performed by the platform expert,
+implemented in \texttt{AppleACPIPlatformExpert.kext}.
+
+AppleACPIPlatformExpert incorporates two stages of \texttt{IODeviceTree}
+construction implemented by calling \\
+\texttt{AppleACPIPlatformExpert::mergeDeviceProperties}:
+
+\begin{enumerate}
+  \tightlist
+  \item During ACPI table initialisation through the recursive ACPI namespace scanning
+  by the calls to \\
+  \texttt{AppleACPIPlatformExpert::createDTNubs}.
+  \item During IOService registration (\texttt{IOServices::registerService}) callbacks
+  implemented as a part of \\
+  \texttt{AppleACPIPlatformExpert::platformAdjustService}
+  function and its private worker method \\
+  \texttt{AppleACPIPlatformExpert::platformAdjustPCIDevice}
+  specific to the PCI devices.
+\end{enumerate}
+
+The application of the stages depends on the device presence in ACPI tables.
+The first stage applies very early but exclusively to the devices present in ACPI tables.
+The second stage applies to all devices much later after the PCI configuration
+and may repeat the first stage if the device was not present in ACPI.
+
+For all kernel drivers, which may inspect the \texttt{IODeviceTree} plane without
+probing (e.g. \texttt{Lilu} and its plugins like \texttt{WhateverGreen}) it is particularly
+important to ensure device presence in the ACPI tables. Failing to do so may result
+\textbf{in all kinds of erratic behaviour} caused by ignoring the injected device properties
+as they were not constructed at the first stage. See \texttt{SSDT-IMEI.dsl} and
+\texttt{SSDT-BRG0.dsl} for an example.
 
 \subsection{Properties}\label{devpropsprops}
 
@@ -1656,6 +1696,13 @@ blocking.
   See \hyperref[kernelpropsadd]{Add Properties} section below. Kernel driver load
   order follows the item order in the array, thus the dependencies should be written
   prior to their consumers.
+
+  To track the dependency order one can inspect the \texttt{OSBundleLibraries} key
+  in the \texttt{Info.plist} of the kext. Any kext mentioned in the
+  \texttt{OSBundleLibraries} of the other kext must be precede this kext.
+
+  \emph{Note}: Kexts may have inner kexts (\texttt{Plug-Ins}) in their bundle. Each
+  inner kext must be added separately.
 
 \item
   \texttt{Block}\\
@@ -2328,7 +2375,7 @@ entry choice will update till next manual reconfiguration.
   \hyperref[miscsecurityprops]{Security Properties} section below.
 
 \item
-  \texttt{Tools}\\
+  \texttt{Tools}\label{misctools}\\
   \textbf{Type}: \texttt{plist\ array}\\
   \textbf{Description}: Add tool entries to boot picker.
 
@@ -2338,7 +2385,8 @@ entry choice will update till next manual reconfiguration.
   \emph{Note}: Select tools, for example, UEFI Shell, are very
   dangerous and \textbf{MUST NOT} appear in production configurations, especially
   in vaulted ones and protected with secure boot, as they may be used to easily
-  bypass secure boot chain.
+  bypass secure boot chain. For tool examples check the \hyperref[uefitools]{UEFI}
+  section of this document.
 
 \end{enumerate}
 
@@ -2437,20 +2485,38 @@ entry choice will update till next manual reconfiguration.
   \tightlist
   \item \texttt{0x0001} --- \texttt{OC\_ATTR\_USE\_VOLUME\_ICON}, provides custom icons
     for boot entries:
+    
+    For \texttt{Tools} OpenCore will try to load a custom icon and fallback to the default icon:
     \begin{itemize}
-      \tightlist
+    \tightlist
+      \item \texttt{ResetNVRAM} --- \texttt{Resources\textbackslash Image\textbackslash ResetNVRAM.icns}
+        --- \texttt{ResetNVRAM.icns} from icons directory.
+      \item \texttt{Tools\textbackslash <TOOL\_RELATIVE\_PATH>.icns}
+        --- icon near the tool file with appended \texttt{.icns} extension.
+    \end{itemize} \medskip
+    
+    For custom boot \texttt{Entries} OpenCore will try to load a custom icon and fallback
+    to the volume icon or the default icon:
+    \begin{itemize}
+    \tightlist
+      \item \texttt{<ENTRY\_PATH>.icns} --- icon near the entry file with appended \texttt{.icns} extension.
+    \end{itemize} \medskip
+    
+    For all other entries OpenCore will try to load a volume icon and fallback to the default icon:
+    \begin{itemize}
+    \tightlist
       \item \texttt{.VolumeIcon.icns} file at \texttt{Preboot} root for APFS.
       \item \texttt{.VolumeIcon.icns} file at volume root for other filesystems.
-      \item \texttt{<TOOL\_NAME>.icns} file for \texttt{Tools}.
-    \end{itemize}
+    \end{itemize} \medskip
+    
     Volume icons can be set in Finder. Note, that enabling this may result in
     external and internal icons to be indistinguishable.
   \item \texttt{0x0002} --- \texttt{OC\_ATTR\_USE\_DISK\_LABEL\_FILE}, provides custom
     rendered titles for boot entries:
     \begin{itemize}
-      \tightlist
+    \tightlist
       \item \texttt{.disk\_label} (\texttt{.disk\_label\_2x}) file near bootloader for all filesystems.
-      \item \texttt{<TOOL\_NAME.lbl} (\texttt{<TOOL\_NAME.l2x}) file near tool for \texttt{Tools}.
+      \item \texttt{<TOOL\_NAME>.lbl} (\texttt{<TOOL\_NAME>.l2x}) file near tool for \texttt{Tools}.
     \end{itemize}
     Prerendered labels can be generated via \texttt{disklabel} utility or \texttt{bless} command.
     When disabled or missing text labels (\texttt{.contentDetails} or \texttt{.disk\_label.contentDetails})
@@ -2591,7 +2657,8 @@ entry choice will update till next manual reconfiguration.
   presses of \texttt{Escape} key to enter the boot menu.
 
   \emph{Note 3}: On Macs with problematic GOP it may be difficult to access Apple BootPicker.
-  To workaround this problem even without loading OpenCore \texttt{BootKicker} utility can be blessed.
+  \texttt{BootKicker} utility can be blessed to workaround this problem even without loading
+  OpenCore. On some Macs \texttt{BootKicker} will not run from OpenCore.
 
 \end{enumerate}
 
@@ -2671,6 +2738,25 @@ cat Kernel.panic | grep macOSProcessedStackshotData |
     \item \texttt{0x80000000} (bit \texttt{31}) --- \texttt{DEBUG\_ERROR} in \texttt{DEBUG},
       \texttt{NOOPT}, \texttt{RELEASE}.
   \end{itemize}
+
+\item
+  \texttt{SerialInit}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Perform serial port initialisation.
+
+  This option will perform serial port initialisation within OpenCore prior to enabling
+  (any) debug logging. Serial port configuration is defined via PCDs at compile time
+  in \texttt{gEfiMdeModulePkgTokenSpaceGuid} GUID. Default values as found in
+  \texttt{MdeModulePkg.dec} are as follows:
+  
+  \begin{itemize}
+  \tightlist
+    \item \texttt{PcdSerialBaudRate} --- Baud rate: \texttt{115200}.
+    \item \texttt{PcdSerialLineControl} --- Line control: no parity, 8 data bits, 1 stop bit.
+  \end{itemize}
+
+  See more details in \hyperref[troubleshootingdebug]{\texttt{Debugging}} section.
 
 \item
   \texttt{SysReport}\\
@@ -2835,6 +2921,21 @@ nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-log |
   to set the default boot option in boot picker.
 
 \item
+  \texttt{ApECID}\\
+  \textbf{Type}: \texttt{plist\ integer}, 64 bit\\
+  \textbf{Failsafe}: \texttt{0}\\
+  \textbf{Description}: Apple Enclave Identifier.
+
+  Setting this value to any (random) non-zero 64-bit integer will allow using
+  personalised Apple Secure Boot identifiers. This value set and
+  \texttt{SecureBootModel} valid and not \texttt{Disabled} is equivalent to
+  to ahieve \href{https://support.apple.com/en-us/HT208330}{\texttt{Full Security}}
+  of Apple Secure Boot.
+
+  \emph{Note}: You will have to reinstall the operating system or use the recovery
+  after setting this value to non-zero.
+
+\item
   \texttt{AuthRestart}\\
   \textbf{Type}: \texttt{plist\ boolean}\\
   \textbf{Failsafe}: \texttt{false}\\
@@ -2879,6 +2980,21 @@ nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-log |
   option created in \texttt{Bootstrap}, executing NVRAM reset prior to loading OpenCore will remove it.
 
 \item
+  \texttt{DmgLoading}\\
+  \textbf{Type}: \texttt{plist\ string}\\
+  \textbf{Failsafe}: \texttt{Signed}\\
+  \textbf{Description}: Attempt to provide bootloader persistence.
+
+  Valid values:
+
+  \begin{itemize}
+  \tightlist
+  \item \texttt{Disabled} --- loading DMG images will fail.
+  \item \texttt{Signed} --- only Apple-signed DMG images will load.
+  \item \texttt{Any} --- any DMG images will mount as normal filesystems.
+  \end{itemize}
+
+\item
   \texttt{ExposeSensitiveData}\\
   \textbf{Type}: \texttt{plist\ integer}\\
   \textbf{Failsafe}: \texttt{0x6}\\
@@ -2910,7 +3026,7 @@ nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version
 \end{lstlisting}
 
   To obtain OEM information use the following commands in macOS:
-\begin{lstlisting}[label=nvramver, style=ocbash]
+\begin{lstlisting}[label=nvramoem, style=ocbash]
 nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:oem-product # SMBIOS Type1 ProductName
 nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:oem-vendor  # SMBIOS Type2 Manufacturer
 nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:oem-board   # SMBIOS Type2 ProductName
@@ -3076,6 +3192,50 @@ rm vault.pub
   \item \texttt{OC\_SCAN\_ALLOW\_DEVICE\_SCSI}
   \item \texttt{OC\_SCAN\_ALLOW\_DEVICE\_NVME}
   \end{itemize}
+
+\item
+  \texttt{SecureBootModel}\\
+  \textbf{Type}: \texttt{plist\ string}\\
+  \textbf{Failsafe}: \texttt{Default}\\
+  \textbf{Description}: Apple Secure Boot hardware model.
+
+  Defines Apple Secure Boot hardware model and policy. Specifying
+  this value defines which operating systems will be bootable.
+  Operating systems shipped before the specified model was released
+  will not boot. Valid values:
+
+  \begin{itemize}
+  \tightlist
+  \item \texttt{Default} --- Recent available model, currently set to \texttt{j215}.
+  \item \texttt{Disabled} --- No model, Secure Boot will be disabled.
+  \item \texttt{j137} --- \texttt{iMacPro1,1 (December 2017)}
+  \item \texttt{j680} --- \texttt{MacBookPro15,1 (July 2018)}
+  \item \texttt{j132} --- \texttt{MacBookPro15,2 (July 2018)}
+  \item \texttt{j174} --- \texttt{Macmini8,1 (October 2018)}
+  \item \texttt{j140k} --- \texttt{MacBookAir8,1 (October 2018)}
+  \item \texttt{j780} --- \texttt{MacBookPro15,3 (May 2019)}
+  \item \texttt{j213} --- \texttt{MacBookPro15,4 (July 2019)}
+  \item \texttt{j140a} --- \texttt{MacBookAir8,2 (July 2019)}
+  \item \texttt{j152f} --- \texttt{MacBookPro16,1 (November 2019)}
+  \item \texttt{j160} --- \texttt{MacPro7,1 (December 2019)}
+  \item \texttt{j230k} --- \texttt{MacBookAir9,1 (March 2020)}
+  \item \texttt{j214k} --- \texttt{MacBookPro16,2 (May 2020)}
+  \item \texttt{j223} --- \texttt{MacBookPro16,3 (May 2020)}
+  \item \texttt{j215} --- \texttt{MacBookPro16,4 (June 2020)}
+  \item \texttt{j185} --- \texttt{iMac20,1 (August 2020)}
+  \item \texttt{j185f} --- \texttt{iMac20,2 (August 2020)}
+  \end{itemize}
+
+  \texttt{PlatformInfo} and \texttt{SecureBootModel} are independent,
+  allowing to enabling Apple Secure Boot with any SMBIOS. Setting
+  \texttt{SecureBootModel} to any valid value but \texttt{Disabled} is equivalent to
+  \href{https://support.apple.com/en-us/HT208330}{\texttt{Medium Security}}
+  of Apple Secure Boot. To achieve \texttt{Full Security} one will need to
+  also specify \texttt{ApECID} value.
+
+  \emph{Note}: \texttt{Default} value will increase with time to support the latest
+  major release operating system. It is not recommended to use \texttt{ApECID}
+  and \texttt{Default} value together.
 
 \end{enumerate}
 
@@ -4358,11 +4518,12 @@ build -a X64 -b RELEASE -t XCODE5 -p FatPkg/FatPkg.dsc
 build -a X64 -b RELEASE -t XCODE5 -p MdeModulePkg/MdeModulePkg.dsc
 \end{lstlisting}
 
-\subsection{Tools}\label{uefitools}
+\subsection{Tools and Applications}\label{uefitools}
 
 Standalone tools may help to debug firmware and hardware. Some of the known tools are listed below.
-While some tools can be launched from within OpenCore many should be run separately either directly
-or from \texttt{Shell}.
+While some tools can be launched from within OpenCore, see more details in
+the \hyperref[misctools]{Tools} subsection of the configuration, most should be run
+separately either directly or from \texttt{Shell}.
 
 To boot into OpenShell or any other tool directly save \texttt{OpenShell.efi}
 under the name of \texttt{EFI\textbackslash BOOT\textbackslash BOOTX64.EFI}
@@ -4430,7 +4591,8 @@ similar to the builtin text interface.
 
 OpenCanopy requires graphical resources located in \texttt{Resources} directory to run.
 Sample resources (fonts and images) can be found in
-\href{https://github.com/acidanthera/OcBinaryData}{OcBinaryData repository}.
+\href{https://github.com/acidanthera/OcBinaryData}{OcBinaryData repository}. You can find customised icons over the internet 
+(e.g. \href{https://github.com/blackosx/OpenCanopyIcons}{here} or \href{https://applelife.ru/threads/kastomizacija-opencanopy.2945020/}{there}).
 
 OpenCanopy provides full support for \texttt{PickerAttributes} and offers a configurable
 builtin icon set. The default chosen icon set depends on the \texttt{DefaultBackgroundColor}
@@ -4548,7 +4710,7 @@ functioning. Feature highlights:
   \item Audio path is the base filename corresponding to a file identifier. For macOS bootloader audio paths refer to
   \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Apple/Protocol/AppleVoiceOver.h}{\texttt{APPLE\_VOICE\_OVER\_AUDIO\_FILE} definition}.
   For OpenCore audio paths refer to
-  \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Protocol/OcAudio.h}{\texttt{OC\_VOICE\_OVER\_AUDIO\_FILE} definition}.
+  \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Acidanthera/Protocol/OcAudio.h}{\texttt{OC\_VOICE\_OVER\_AUDIO\_FILE} definition}.
   The only exception is OpenCore boot chime file, which is \texttt{OCEFIAudio\_VoiceOver\_Boot.wav}.
   \end{itemize}
 
@@ -4690,7 +4852,7 @@ functioning. Feature highlights:
     \item \texttt{-1} --- permit any release date to load (strongly discouraged).
     \item Other --- use custom minimal APFS release date, e.g. \texttt{20200401}
     for 2020/04/01. APFS release dates can be found in OpenCore boot log
-    and \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Library/OcApfsLib.h}{\texttt{OcApfsLib}}.
+    and \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Acidanthera/Library/OcApfsLib.h}{\texttt{OcApfsLib}}.
   \end{itemize}
 
 \item
@@ -4714,7 +4876,7 @@ functioning. Feature highlights:
     \item \texttt{-1} --- permit any version to load (strongly discouraged).
     \item Other --- use custom minimal APFS version, e.g. \texttt{1412101001000000}
     from macOS Catalina 10.15.4. APFS versions can be found in OpenCore boot log
-    and \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Library/OcApfsLib.h}{\texttt{OcApfsLib}}.
+    and \href{https://github.com/acidanthera/OpenCorePkg/blob/master/Include/Acidanthera/Library/OcApfsLib.h}{\texttt{OcApfsLib}}.
   \end{itemize}
 
 \end{enumerate}
@@ -5217,6 +5379,14 @@ functioning. Feature highlights:
   version.
 
 \item
+  \texttt{AppleImg4Verification}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Reinstalls Apple IMG4 Verification protocol with a builtin
+  version. This protocol is used to verify \texttt{im4m} manifest files used by
+  Apple Secure Boot.
+
+\item
   \texttt{AppleKeyMap}\\
   \textbf{Type}: \texttt{plist\ boolean}\\
   \textbf{Failsafe}: \texttt{false}\\
@@ -5234,6 +5404,13 @@ functioning. Feature highlights:
   I/O attempts to select RTC memory addresses. The list of addresses
   can be specified in \texttt{4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:rtc-blacklist}
   variable as a data array.
+
+\item
+  \texttt{AppleSecureBoot}\\
+  \textbf{Type}: \texttt{plist\ boolean}\\
+  \textbf{Failsafe}: \texttt{false}\\
+  \textbf{Description}: Reinstalls Apple Secure Boot protocol with a builtin
+  version.
 
 \item
   \texttt{AppleSmcIo}\\
@@ -5607,8 +5784,8 @@ page. For IDA Pro you will need IDA Pro 7.3 or newer, refer to
 for more details.
 
 To obtain the log during boot you can make the use of serial port debugging. Serial port
-debugging is enabled in \texttt{Target}, e.g. \texttt{0xB} for onscreen with serial. OpenCore
-uses \texttt{115200} baud rate, \texttt{8} data bits, no parity, and \texttt{1} stop bit.
+debugging is enabled in \texttt{Target}, e.g. \texttt{0xB} for onscreen with serial. To
+initialise serial within OpenCore use \texttt{SerialInit} configuration option.
 For macOS your best choice are CP2102-based UART devices. Connect motherboard \texttt{TX}
 to USB UART \texttt{RX}, and motherboard \texttt{GND} to USB UART \texttt{GND}. Use
 \texttt{screen} utility to get the output, or download GUI software, such as
@@ -5763,10 +5940,10 @@ you will need \texttt{debug=0x8} boot argument.
 
   Unfortunately for some quirks like \texttt{RebuildAppleMemoryMap},
   \texttt{EnableWriteUnprotector}, \texttt{ProtectMemoryRegions},
-  \texttt{RebuildAppleMemoryMap}, \texttt{SetupVirtualMap},
-  and \texttt{SyncRuntimePermissions} there is no definite approach even on similar
-  systems, so trying all their combinations may be required for optimal setup.
-  Refer to individual quirk descriptions in this document for more details.
+  \texttt{SetupVirtualMap}, and \texttt{SyncRuntimePermissions} there
+  is no definite approach even on similar systems, so trying all their
+  combinations may be required for optimal setup. Refer to individual quirk
+  descriptions in this document for more details.
 
 \end{enumerate}
 

@@ -291,6 +291,7 @@
   _(BOOLEAN                     , AppleDebug                  ,     , FALSE        , ()) \
   _(BOOLEAN                     , ApplePanic                  ,     , FALSE        , ()) \
   _(BOOLEAN                     , DisableWatchDog             ,     , FALSE        , ()) \
+  _(BOOLEAN                     , SerialInit                  ,     , FALSE        , ()) \
   _(BOOLEAN                     , SysReport                   ,     , FALSE        , ())
   OC_DECLARE (OC_MISC_DEBUG)
 
@@ -309,6 +310,7 @@ typedef enum {
 #define OC_MISC_SECURITY_FIELDS(_, __) \
   _(OC_STRING                   , BootProtect                 ,      , OC_STRING_CONSTR ("None", _, __), OC_DESTR (OC_STRING) ) \
   _(OC_STRING                   , Vault                       ,      , OC_STRING_CONSTR ("Secure", _, __), OC_DESTR (OC_STRING) ) \
+  _(OC_STRING                   , DmgLoading                  ,      , OC_STRING_CONSTR ("Signed", _, __), OC_DESTR (OC_STRING) ) \
   _(UINT32                      , ScanPolicy                  ,      , OC_SCAN_DEFAULT_POLICY  , ()) \
   _(BOOLEAN                     , AllowNvramReset             ,      , FALSE                   , ()) \
   _(BOOLEAN                     , AllowSetDefault             ,      , FALSE                   , ()) \
@@ -317,6 +319,8 @@ typedef enum {
   _(BOOLEAN                     , EnablePassword              ,      , FALSE                   , ()) \
   _(UINT8                       , PasswordHash                , [64] , {0}                     , ()) \
   _(OC_DATA                     , PasswordSalt                ,      , OC_EDATA_CONSTR (_, __) , OC_DESTR (OC_DATA)) \
+  _(OC_STRING                   , SecureBootModel             ,      , OC_STRING_CONSTR ("Default", _, __), OC_DESTR (OC_STRING) ) \
+  _(UINT64                      , ApECID                      ,      , 0                       , ()) \
   _(UINT64                      , HaltLevel                   ,      , 0x80000000              , ())
   OC_DECLARE (OC_MISC_SECURITY)
 
@@ -539,8 +543,10 @@ typedef enum {
   _(BOOLEAN                     , AppleEvent                  ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleFramebufferInfo        ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleImageConversion        ,     , FALSE  , ()) \
+  _(BOOLEAN                     , AppleImg4Verification       ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleKeyMap                 ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleRtcRam                 ,     , FALSE  , ()) \
+  _(BOOLEAN                     , AppleSecureBoot             ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleSmcIo                  ,     , FALSE  , ()) \
   _(BOOLEAN                     , AppleUserInterfaceTheme     ,     , FALSE  , ()) \
   _(BOOLEAN                     , DataHub                     ,     , FALSE  , ()) \

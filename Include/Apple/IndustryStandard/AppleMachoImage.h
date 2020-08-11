@@ -1805,7 +1805,7 @@ typedef struct {
          Key        :  2,
          Next       : 12,  ///< 1 or 4-byte stide
          IsAuth     :  1;  ///< 0 -> not authenticated.  1 -> authenticated
-} MACH_DYKD_CHAINED_PTR_64_KERNEL_CACHE_REBASE;
+} MACH_DYLD_CHAINED_PTR_64_KERNEL_CACHE_REBASE;
 
 // header of the LC_DYLD_CHAINED_FIXUPS payload
 typedef struct {
@@ -2251,7 +2251,7 @@ typedef struct {
 #define MACH_N_REF_TO_WEAK  0x0080U
 ///
 /// The N_ARM_THUMB_DEF bit of the n_desc field indicates that the symbol is
-/// a defintion of a Thumb function.
+/// a definition of a Thumb function.
 ///
 #define MACH_N_ARM_THUMB_DEF  0x0008U
 ///

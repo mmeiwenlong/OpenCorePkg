@@ -14,6 +14,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 
 #include <OpenCore.h>
 
+#include <Guid/AppleVariable.h>
 #include <Guid/OcVariable.h>
 
 #include <Library/BaseLib.h>
@@ -27,6 +28,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
 #include <Library/OcSmbiosLib.h>
 #include <Library/OcStringLib.h>
 #include <Library/PrintLib.h>
+#include <Library/SerialPortLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 
@@ -536,6 +538,10 @@ OcMiscEarlyInit (
     gBS->SetWatchdogTimer (0, 0, 0, NULL);
   }
 
+  if (Config->Misc.Debug.SerialInit) {
+    SerialPortInitialize ();
+  }
+
   OcConfigureLogProtocol (
     Config->Misc.Debug.Target,
     Config->Misc.Debug.DisplayDelay,
@@ -690,6 +696,7 @@ OcMiscBoot (
   OC_PICKER_CONTEXT      *Context;
   OC_PICKER_CMD          PickerCommand;
   OC_PICKER_MODE         PickerMode;
+  OC_DMG_LOADING_SUPPORT DmgLoading;
   UINTN                  ContextSize;
   UINT32                 Index;
   UINT32                 EntryIndex;
@@ -697,6 +704,9 @@ OcMiscBoot (
   UINTN                  BlessOverrideSize;
   CHAR16                 **BlessOverride;
   CONST CHAR8            *AsciiPicker;
+  CONST CHAR8            *AsciiDmg;
+  CHAR8                  RecoveryBootMode[16];
+  UINTN                  RecoveryBootModeSize;
 
   AsciiPicker = OC_BLOB_GET (&Config->Misc.Boot.PickerMode);
 
@@ -707,8 +717,21 @@ OcMiscBoot (
   } else if (AsciiStrCmp (AsciiPicker, "Apple") == 0) {
     PickerMode = OcPickerModeApple;
   } else {
-    DEBUG ((DEBUG_WARN, "OC: Unknown PickirMode: %a, using builtin\n", AsciiPicker));
+    DEBUG ((DEBUG_WARN, "OC: Unknown PickerMode: %a, using builtin\n", AsciiPicker));
     PickerMode = OcPickerModeBuiltin;
+  }
+
+  AsciiDmg = OC_BLOB_GET (&Config->Misc.Security.DmgLoading);
+
+  if (AsciiStrCmp (AsciiDmg, "Disabled") == 0) {
+    DmgLoading = OcDmgLoadingDisabled;
+  } else if (AsciiStrCmp (AsciiDmg, "Any") == 0) {
+    DmgLoading = OcDmgLoadingAnyImage;
+  } else if (AsciiStrCmp (AsciiDmg, "Signed") == 0) {
+    DmgLoading = OcDmgLoadingAppleSigned;
+  } else {
+    DEBUG ((DEBUG_WARN, "OC: Unknown DmgLoading: %a, using Signed\n", AsciiDmg));
+    DmgLoading = OcDmgLoadingAppleSigned;
   }
 
   //
@@ -799,7 +822,7 @@ OcMiscBoot (
   }
 
   Context->ScanPolicy            = Config->Misc.Security.ScanPolicy;
-  Context->LoadPolicy            = OC_LOAD_DEFAULT_POLICY;
+  Context->DmgLoading            = DmgLoading;
   Context->TimeoutSeconds        = Config->Misc.Boot.Timeout;
   Context->TakeoffDelay          = Config->Misc.Boot.TakeoffDelay;
   Context->StartImage            = StartImage;
@@ -819,7 +842,30 @@ OcMiscBoot (
     Context->TitleSuffix      = OcMiscGetVersionString ();
   }
 
-  if (Config->Misc.Boot.ShowPicker) {
+  //
+  // Provide basic support for recovery-boot-mode variable, which is meant
+  // to perform one-time recovery boot. In general BootOrder and BootNext
+  // are set to the recovery path, but this is not the case for secure-boot.
+  // TODO: Maybe there are more to handle.
+  //
+  RecoveryBootModeSize = sizeof (RecoveryBootModeSize);
+  Status = gRT->GetVariable (
+    APPLE_RECOVERY_BOOT_MODE_VARIABLE_NAME,
+    &gAppleBootVariableGuid,
+    NULL,
+    &RecoveryBootModeSize,
+    RecoveryBootMode
+    );
+  if (!EFI_ERROR (Status) && AsciiStrnCmp (RecoveryBootMode, "secure-boot", L_STR_LEN ("secure-boot")) == 0) {
+    gRT->SetVariable (
+      APPLE_RECOVERY_BOOT_MODE_VARIABLE_NAME,
+      &gAppleBootVariableGuid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE,
+      0,
+      NULL
+      );
+    PickerCommand = Context->PickerCommand = OcPickerBootAppleRecovery;
+  } else if (Config->Misc.Boot.ShowPicker) {
     PickerCommand = Context->PickerCommand = OcPickerShowPicker;
   } else {
     PickerCommand = Context->PickerCommand = OcPickerDefault;

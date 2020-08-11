@@ -14,6 +14,19 @@
 #define OC_APPLE_SECURE_BOOT_LIB_H
 
 #include <Protocol/AppleSecureBoot.h>
+#include <Protocol/AppleImg4Verification.h>
+
+/**
+  Bootstrap NVRAM and library values for secure booting.
+
+  @param[in] Model          Secure boot model (without ap suffix in lower-case).
+
+  @retval EFI_SUCCESS  On success.
+**/
+EFI_STATUS
+OcAppleSecureBootBootstrapValues (
+  IN CONST CHAR8  *Model
+  );
 
 /**
   Install and initialise the Apple Secure Boot protocol.
@@ -25,7 +38,6 @@
 
   @returns Installed or located protocol.
   @retval NULL  There was an error locating or installing the protocol.
-
 **/
 APPLE_SECURE_BOOT_PROTOCOL *
 OcAppleSecureBootInstallProtocol (
